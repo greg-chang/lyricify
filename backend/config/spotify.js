@@ -1,9 +1,7 @@
-const SpotifyWebApi = require('spotify-web-api-node');
-
-const spotifyApi = new SpotifyWebApi({
+const credentials = {
     clientId: process.env.SPOTIFY_CLIENT_ID,
     clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
     redirectUri: process.env.REDIRECT_URI
-});
+};
 
-module.exports = spotifyApi;
+module.exports = credentials;

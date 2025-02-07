@@ -1,12 +1,15 @@
 'use client'
 import { useEffect, useState } from 'react';
+import DraggablePopup from './components/DraggablePopup';
+
 export default function Home() {
     const [profile, setProfile] = useState(null);
     const [error, setError] = useState(null);
-
+    const [showPopup, setShowPopup] = useState(false);
+    
     const handleLogin = async () => {
         try {
-            const response = await fetch('http://localhost:5001/api/login');
+            const response = await fetch('http://localhost:5001/api/auth/login');
             const data = await response.json();
             window.location.href = data.url;
         } catch (err) {
@@ -15,21 +18,38 @@ export default function Home() {
     };
 
     useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const success = urlParams.get('success');
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+        const state = params.get("state");
         
-        if (success === 'true') {
-            fetch('http://localhost:5001/api/me')
+        if (code && state) {
+            // Clear the code from the URL
+            window.history.replaceState({}, document.title, "/");
+            // Get profile using the code
+            fetch(`http://localhost:5001/api/auth/callback?code=${code}&state=${state}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    return fetch('http://localhost:5001/api/profile/me', {
+                        headers: {
+                            'Authorization': `Bearer ${data.access_token}`
+                        }
+                    });
+                })
                 .then(res => res.json())
                 .then(data => setProfile(data))
-                .catch(err => setError('Failed to get profile'));
+                .catch(err => {
+                    console.error('Error:', err);
+                    setError('Failed to get profile');
+                });
         }
     }, []);
 
     return (
         <main className="p-8">
             <h1 className="text-2xl font-bold mb-6">Spotify Profile</h1>
-
             {error && <div className="text-red-500 mb-4">{error}</div>}
             {!profile ? (
                 <button
@@ -39,26 +59,20 @@ export default function Home() {
                     Login with Spotify
                 </button>
             ) : (
-                <section className="space-y-4">
-                    <div className="flex items-center gap-4">
-                        {profile.images?.[0]?.url && (
-                            <img 
-                                src={profile.images[0].url} 
-                                alt="Profile" 
-                                className="w-16 h-16 rounded-full"
-                            />
-                        )}
-                        <h2 className="text-xl font-semibold">
-                            {profile.display_name}
-                        </h2>
-                    </div>
-                    <ul className="space-y-2">
-                        <li>Email: {profile.email}</li>
-                        <li>Spotify URI: <a href={profile.uri} className="text-green-500 hover:underline">{profile.uri}</a></li>
-                        <li>Profile Link: <a href={profile.external_urls?.spotify} className="text-green-500 hover:underline" target="_blank" rel="noopener noreferrer">Open in Spotify</a></li>
-                        <li>Followers: {profile.followers?.total}</li>
-                    </ul>
-                </section>
+                <>
+                    <button
+                        onClick={() => setShowPopup(!showPopup)}
+                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                    >
+                        {showPopup ? 'Hide Profile' : 'Show Profile'}
+                    </button>
+                    {showPopup && (
+                        <DraggablePopup
+                            profile={profile}
+                            onClose={() => setShowPopup(false)}
+                        />
+                    )}
+                </>
             )}
         </main>
     );
